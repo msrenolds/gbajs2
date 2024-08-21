@@ -2,7 +2,6 @@
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 		<title>gbajs2</title>
-		<link rel="stylesheet" href="resources/main.css" />
 		<script src="js/util.js"></script>
 		<script src="js/core.js"></script>
 		<script src="js/arm.js"></script>
@@ -21,416 +20,330 @@
 		<script src="js/gba.js"></script>
 		<script src="resources/xhr.js"></script>
 		<script src="resources/biosbin.js"></script>
+		<script src="jquery-3.5.1.min.js"></script>
 
-		<script>
-			let gba;
-			let runCommands = [];
-			let debug = null;
+		<style>
+			@import url('https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@400;700&display=swap');
 
-			try {
-				gba = new GameBoyAdvance();
-				gba.keypad.eatInput = true;
-				gba.setLogger(function (level, error) {
-					console.log(error);
-					gba.pause();
-					let screen = document.getElementById('screen');
-					if (screen.getAttribute('class') === 'dead') {
-						console.log(
-							'We appear to have crashed multiple times without reseting.'
-						);
-						return;
-					}
-					let crash = document.createElement('img');
-					crash.setAttribute('id', 'crash');
-					crash.setAttribute('src', 'resources/crash.png');
-					screen.parentElement.insertBefore(crash, screen);
-					screen.setAttribute('class', 'dead');
-				});
-			} catch (exception) {
-				gba = null;
+			body {
+				font-family: 'Lexend Deca', sans-serif;
+				margin: 0;
+				padding: 0;
+				background-color: #f4f4f9;
+				color: #2e2e2e;
+			}
+			.container {
+				display: flex;
+				flex-direction: column;
+				min-height: 100vh;
 			}
 
-			window.onload = function () {
-				if (gba && FileReader) {
-					let canvas = document.getElementById('screen');
-					gba.setCanvas(canvas);
+			header {
+				background-color: #3b7a57; 
+				color: #ffffff; 
+				padding: 20px;
+				text-align: center;
+			}
 
-					gba.logLevel = gba.LOG_ERROR;
+			main {
+				flex: 1;
+				padding: 20px;
+				background-color: #ffffff; 
+				color: #2e2e2e; 
+			}
+			footer {
+				background-color: #3b7a57; 
+				color: #ffffff; 
+				padding: 10px;
+				text-align: center;
+			}
+			footer a {
+				color: #a5d6a7; 
+			}
 
-					gba.setBios(biosBin);
+			footer a:hover {
+				text-decoration: underline;
+			}
+			a {
+				color: #2e7d32; /* Green for links */
+				text-decoration: none;
+			}
 
-					if (!gba.audio.context) {
-						// Remove the sound box if sound isn't available
-						let soundbox = document.getElementById('sound');
-						soundbox.parentElement.removeChild(soundbox);
-					}
+			a:hover {
+				text-decoration: underline;
+			}
+			button {
+				background-color: #2e7d32; 
+				color: #ffffff; 
+				padding: 10px 20px;
+				border: none;
+				border-radius: 5px;
+				cursor: pointer;
+			}
 
-					if (
-						window.navigator.appName ===
-						'Microsoft Internet Explorer'
-					) {
-						// Remove the pixelated option if it doesn't work
-						let pixelatedBox = document.getElementById('pixelated');
-						pixelatedBox.parentElement.removeChild(pixelatedBox);
-					}
-				} else {
-					let dead = document.getElementById('controls');
-					dead.parentElement.removeChild(dead);
+			button:hover {
+				opacity: 0.9; 
+			}
+
+			button:active {
+				opacity: 0.6; 
+			}
+
+			@media (max-width: 768px) {
+				header, footer {
+					text-align: left;
+					padding: 15px;
 				}
-			};
 
-			function fadeOut(id, nextId, kill) {
-				let e = document.getElementById(id);
-				let e2 = document.getElementById(nextId);
-				if (!e) {
-					return;
-				}
-				let removeSelf = function () {
-					if (kill) {
-						e.parentElement.removeChild(e);
-					} else {
-						e.setAttribute('class', 'dead');
-						e.removeEventListener(
-							'webkitTransitionEnd',
-							removeSelf
-						);
-						e.removeEventListener('oTransitionEnd', removeSelf);
-						e.removeEventListener('transitionend', removeSelf);
-					}
-					if (e2) {
-						e2.setAttribute('class', 'hidden');
-						setTimeout(function () {
-							e2.removeAttribute('class');
-						}, 0);
-					}
-				};
-
-				e.addEventListener('webkitTransitionEnd', removeSelf, false);
-				e.addEventListener('oTransitionEnd', removeSelf, false);
-				e.addEventListener('transitionend', removeSelf, false);
-				e.setAttribute('class', 'hidden');
-			}
-
-			function run(file) {
-				let dead = document.getElementById('loader');
-				dead.value = '';
-				let load = document.getElementById('select');
-				load.textContent = 'Loading...';
-				load.removeAttribute('onclick');
-				let pause = document.getElementById('pause');
-				pause.textContent = 'PAUSE';
-				gba.loadRomFromFile(file, function (result) {
-					if (result) {
-						for (let i = 0; i < runCommands.length; ++i) {
-							runCommands[i]();
-						}
-						runCommands = [];
-						fadeOut('preload', 'ingame');
-						fadeOut('instructions', null, true);
-						gba.runStable();
-					} else {
-						load.textContent = 'FAILED';
-						setTimeout(function () {
-							load.textContent = 'SELECT';
-							load.onclick = function () {
-								document.getElementById('loader').click();
-							};
-						}, 3000);
-					}
-				});
-			}
-
-			function reset() {
-				gba.pause();
-				gba.reset();
-				let load = document.getElementById('select');
-				load.textContent = 'SELECT';
-				let crash = document.getElementById('crash');
-				if (crash) {
-					let context = gba.targetCanvas.getContext('2d');
-					context.clearRect(0, 0, 480, 320);
-					gba.video.drawCallback();
-					crash.parentElement.removeChild(crash);
-					let canvas = document.getElementById('screen');
-					canvas.removeAttribute('class');
-				} else {
-					lcdFade(
-						gba.context,
-						gba.targetCanvas.getContext('2d'),
-						gba.video.drawCallback
-					);
-				}
-				load.onclick = function () {
-					document.getElementById('loader').click();
-				};
-				fadeOut('ingame', 'preload');
-			}
-
-			function uploadSavedataPending(file) {
-				runCommands.push(function () {
-					gba.loadSavedataFromFile(file);
-				});
-			}
-
-			function togglePause() {
-				let e = document.getElementById('pause');
-				if (gba.paused) {
-					if (debug && debug.gbaCon) {
-						debug.gbaCon.run();
-					} else {
-						gba.runStable();
-					}
-					e.textContent = 'PAUSE';
-				} else {
-					if (debug && debug.gbaCon) {
-						debug.gbaCon.pause();
-					} else {
-						gba.pause();
-					}
-					e.textContent = 'UNPAUSE';
+				main {
+					padding: 15px;
 				}
 			}
 
-			function screenshot() {
-				let canvas = gba.indirectCanvas;
-				let data = canvas.toDataURL('image/png');
-				let image = new Image();
-        image.src = data;
-        let w = window.open("");
-        w.document.write(image.outerHTML);
+			.controller-container {
+				display: grid;
+				grid-template-columns: repeat(5, 100px);
+				grid-template-rows: repeat(3, 100px); 
+				gap: 5px;
+				justify-content: center;
+				align-items: center;
 			}
 
-			function lcdFade(context, target, callback) {
-				let i = 0;
-				let drawInterval = setInterval(function () {
-					i++;
-					let pixelData = context.getImageData(0, 0, 240, 160);
-					for (let y = 0; y < 160; ++y) {
-						for (let x = 0; x < 240; ++x) {
-							let xDiff = Math.abs(x - 120);
-							let yDiff = Math.abs(y - 80) * 0.8;
-							let xFactor = (120 - i - xDiff) / 120;
-							let yFactor =
-								(80 -
-									i -
-									(y & 1) * 10 -
-									yDiff +
-									Math.pow(xDiff, 1 / 2)) /
-								80;
-							pixelData.data[(x + y * 240) * 4 + 3] *=
-								Math.pow(xFactor, 1 / 3) *
-								Math.pow(yFactor, 1 / 2);
-						}
-					}
-					context.putImageData(pixelData, 0, 0);
-					target.clearRect(0, 0, 480, 320);
-					if (i > 40) {
-						clearInterval(drawInterval);
-					} else {
-						callback();
-					}
-				}, 50);
+			.controller-container button {
+				padding: 10px;
+				font-size: 35px;
+				color: white; 
+				border: none;
+				border-radius: 5px;
+				cursor: pointer;
 			}
 
-			function setVolume(value) {
-				gba.audio.masterVolume = Math.pow(2, value) - 1;
+			.controller-container button:hover {
+				opacity: 0.9; 
 			}
 
-			function setPixelated(pixelated) {
-				let screen = document.getElementById('screen');
-				let context = screen.getContext('2d');
-				context.imageSmoothingEnabled = !pixelated;
+			.controller-container button:active {
+				opacity: 0.6; 
 			}
 
-			function enableDebug() {
-				window.onmessage = function (message) {
-					if (
-						message.origin != document.domain &&
-						(message.origin != 'file://' || document.domain)
-					) {
-						console.log('Failed XSS');
-						return;
-					}
-					switch (message.data) {
-						case 'connect':
-							if (message.source === debug) {
-								debug.postMessage(
-									'connect',
-									document.domain || '*'
-								);
-							}
-							break;
-						case 'connected':
-							break;
-						case 'disconnect':
-							if (message.source === debug) {
-								debug = null;
-							}
-					}
-				};
-				window.onunload = function () {
-					if (debug && debug.postMessage) {
-						debug.postMessage('disconnect', document.domain || '*');
-					}
-				};
-				if (!debug || !debug.postMessage) {
-					debug = window.open('debugger.html', 'debug');
-				} else {
-					debug.postMessage('connect', document.domain || '*');
-				}
+			.up {
+				grid-column: 2;
+				grid-row: 1;
+				background-color: #2ca02c; 
 			}
 
-			document.addEventListener(
-				'webkitfullscreenchange',
-				function () {
-					let canvas = document.getElementById('screen');
-					if (document.webkitIsFullScreen) {
-						canvas.setAttribute(
-							'height',
-							document.body.offsetHeight
-						);
-						canvas.setAttribute(
-							'width',
-							(document.body.offsetHeight / 2) * 3
-						);
-						canvas.setAttribute('style', 'margin: 0');
-					} else {
-						canvas.setAttribute('height', 320);
-						canvas.setAttribute('width', 480);
-						canvas.removeAttribute('style');
-					}
-				},
-				false
-			);
+			.left {
+				grid-column: 1;
+				grid-row: 2;
+				background-color: #1f77b4; 
+			}
 
-			const fullScreen = () => {
-				document.getElementById('screen').requestFullscreen();
-			};
-		</script>
+			.right {
+				grid-column: 3;
+				grid-row: 2;
+				background-color: #ff7f0e; 
+			}
+
+			.down {
+				grid-column: 2;
+				grid-row: 3;
+				background-color: #d62728; 
+			}
+
+			
+			.start-button {
+				grid-column: 4 / span 2;
+				grid-row: 1;
+				background-color: #17becf; 
+			}
+
+			.select-button {
+				grid-column: 4 / span 2;
+				grid-row: 2;
+				background-color: #7f7f7f; 
+			}
+
+			.a-button {
+				grid-column: 5;
+				grid-row: 3;
+				background-color: #9467bd; 
+			}
+
+			.b-button {
+				grid-column: 4;
+				grid-row: 3;
+				background-color: #bcbd22; 
+			}
+
+			.switch {
+			position: relative;
+			display: inline-block;
+			width: 60px;
+			height: 34px;
+			}
+
+			.switch input {
+			opacity: 0;
+			width: 0;
+			height: 0;
+			}
+
+			.slider {
+			position: absolute;
+			cursor: pointer;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background-color: #2e7d32;
+			-webkit-transition: .4s;
+			transition: .4s;
+			}
+
+			.slider:before {
+			position: absolute;
+			content: "";
+			height: 26px;
+			width: 26px;
+			left: 4px;
+			bottom: 4px;
+			background-color: white;
+			-webkit-transition: .4s;
+			transition: .4s;
+			}
+
+			input:checked + .slider {
+			background-color: #2e7d32;
+			}
+
+			input:focus + .slider {
+			box-shadow: 0 0 1px #2e7d32;
+			}
+
+			input:checked + .slider:before {
+			-webkit-transform: translateX(26px);
+			-ms-transform: translateX(26px);
+			transform: translateX(26px);
+			}
+			
+			.slider.round {
+			border-radius: 34px;
+			}
+
+			.slider.round:before {
+			border-radius: 50%;
+			} 
+
+		</style>
+		
 	</head>
 	<body>
-		<canvas id="screen" width="480" height="320"></canvas>
-		<section id="gameinfo">
-			<p>The Game Boy Advance's buttons are mapped as follows:</p>
-			<table id="mapping">
+
+	<header>
+		Project 2025 Plays Pokemon
+
+
+	</header>
+
+	<div id="loadingArea">
+		<p>
+			Loading gameboy emulator...
+		</p>
+
+		<img src = "loading.gif" height="20%">
+	</div>
+
+	<div id="goArea" style="display:none;">
+
+		<center>
+			<button type="button" onclick="go()" id="go" style="font-size: 64px;">Click Here To Start!</button>
+		</center>
+
+	</div>
+		
+	
+
+
+
+	<div id="everythingElse" style="display:none;">
+		<div style="display: inline-block;width:50%; vertical-align: top;">
+			<!--<table>
 				<tr>
-					<td>Up</td>
-					<td>Up</td>
+					<td>
+					</td>
+					<td>Narration Audio</td>
+					<td>
+						<label class="switch">
+							<input type="checkbox" id="speakingAudio">
+							<span class="slider round"></span>
+						</label>
+					</td>
 				</tr>
-				<tr>
-					<td>Down</td>
-					<td>Down</td>
-				</tr>
-				<tr>
-					<td>Left</td>
-					<td>Left</td>
-				</tr>
-				<tr>
-					<td>Right</td>
-					<td>Right</td>
-				</tr>
-				<tr>
-					<td>A</td>
-					<td>Z</td>
-				</tr>
-				<tr>
-					<td>B</td>
-					<td>X</td>
-				</tr>
-				<tr>
-					<td>L</td>
-					<td>A</td>
-				</tr>
-				<tr>
-					<td>R</td>
-					<td>S</td>
-				</tr>
-				<tr>
-					<td>Start</td>
-					<td>Enter</td>
-				</tr>
-				<tr>
-					<td>Select</td>
-					<td>\</td>
-				</tr>
-			</table>
-		</section>
-		<section id="controls">
-			<div id="preload">
-				<button
-					class="bigbutton"
-					id="select"
-					onclick="document.getElementById('loader').click()"
-				>
-					SELECT
-				</button>
-				<input
-					id="loader"
-					type="file"
-					accept=".gba"
-					onchange="run(this.files[0]);"
-				/>
-				<button onclick="document.getElementById('saveloader').click()">
-					Upload Savegame
-				</button>
-				<input
-					id="saveloader"
-					type="file"
-					onchange="uploadSavedataPending(this.files[0]);"
-				/>
+			</table>!-->
+
+			<canvas id="screen" width="480" height="320"></canvas>
+
+			<div class="controller-container">
+				<button class="up" id="u">↑</button>
+				<button class="left" id="l">←</button>
+				<button class="right" id="r">→</button>
+				<button class="down" id="d">↓</button>
+				<button class="a-button" id="a">A</button>
+				<button class="b-button" id="b">B</button>
+				<button class="start-button" id="start">Start</button>
+				<button class="select-button" id="select">Select</button>
 			</div>
-			<div id="ingame" class="hidden">
-				<button id="pause" class="bigbutton" onclick="togglePause()">
-					PAUSE
-				</button>
-				<button class="bigbutton" onclick="reset()">RESET</button>
-				<button onclick="gba.downloadSavedata()">
-					Download Savegame
-				</button>
-				<button onclick="screenshot()">Screenshot</button>
-				<button onclick="fullScreen()">Full screen</button>
-				<label id="pixelated">
-					<input
-						type="checkbox"
-						onchange="setPixelated(this.checked)"
-					/>
-					<p>Pixelated</p>
-				</label>
-				<div id="sound">
-					<input
-						type="checkbox"
-						onchange="gba.audio.masterEnable = this.checked; if (gba.audio.context.state !== 'running') {gba.audio.context.resume();}"
-					/>
-					<p>Sound</p>
-					<input
-						type="range"
-						min="0"
-						max="1"
-						value="1"
-						step="any"
-						onchange="setVolume(this.value)"
-						oninput="setVolume(this.value)"
-					/>
-				</div>
-				<p id="openDebug" onclick="enableDebug()">Debugger</p>
-			</div>
-		</section>
-		<section id="instructions">
+
+
+			
+			
+
 			<p>
-				For legal reasons, GBA.js is presented without any included
-				games. Please click Select below to choose a Game Boy Advance
-				game image from your hard drive that you'd like to play. The
-				games must be uncompressed, so unzip them as needed.
+				NOTE: Arrow keys on PC also work.  Start is ENTER, select is \, A is Z, and B is X
 			</p>
-			<p>
-				Please note that this is a beta and there might be compatibility
-				problems. More information and a link to a compatibility table
-				can be found on the sidebar. If you're feeling daring, please
-				submit problem reports to the GitHub page.
-			</p>
-		</section>
-		<footer style="float: left">
-			© 2012 – 2013 <a href="http://endrift.com/">Endrift</a>
-		</footer>
+
+		</div>
+
+		<div style="display: inline-block;width:40%; height:90%; vertical-align: top; overflow-y: scroll;" id="proj2025"></div>
+
+</div>
+
+</textarea>
+
+
+
+
+
+
+
+
+
+		<script src="main.js"></script>
+
+		<footer>
+		<p>
+			Gameboy Advance Emulator © 2012 – 2013 <a href="http://endrift.com/">Endrift</a>
+		</p>
+	</footer>
+
+
+<!-- Default Statcounter code for P2025PP
+https://proj2025pokemon.s3.amazonaws.com/index.html -->
+<script type="text/javascript">
+	var sc_project=13029226; 
+	var sc_invisible=1; 
+	var sc_security="25ac98c4"; 
+	</script>
+	<script type="text/javascript"
+	src="https://www.statcounter.com/counter/counter.js"
+	async></script>
+	<noscript><div class="statcounter"><a title="free hit
+	counter" href="https://statcounter.com/"
+	target="_blank"><img class="statcounter"
+	src="https://c.statcounter.com/13029226/0/25ac98c4/1/"
+	alt="free hit counter"
+	referrerPolicy="no-referrer-when-downgrade"></a></div></noscript>
+	<!-- End of Statcounter Code -->
+
 	</body>
 </html>

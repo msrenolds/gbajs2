@@ -1,5 +1,5 @@
 body {
-	background: url('bg.png') no-repeat top center, #765490;
+	background: #765490;
 	text-align: center;
 	margin: 0;
 	color: white;
@@ -17,20 +17,7 @@ button {
 	-webkit-font-smoothing: antialiased; /* I'm so sorry */
 }
 
-#screen {
-	margin-top: 85px;
-	margin-bottom: -405px; /* Take up no height */
-}
 
-#screen[width="240"] {
-	margin-top: 42.5px;
-	margin-bottom: -363px; /* Take up no height */
-	image-rendering: -webkit-optimize-contrast;
-	image-rendering: -moz-crisp-edges;
-	image-rendering: -o-crisp-edges;
-	zoom: 2;
-	-o-transform: scale(2);
-}
 
 #crash {
 	margin-top: 100px;
